@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Centinela RSS — Monitor de noticias</title>
+<style>
+  :root{
+    --ink:#111111;
+    --ink-soft:#6b6b6b;
+    --ink-faint:#9a9a9a;
+    --rule:#d9d9d9;
+    --lilac:#8e7cc3;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:transparent;
+    color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .masthead{
+    width:100%;
+    max-width:1400px;
+    margin:0 auto;
+    border-bottom:3px solid var(--ink);
+    padding:8px clamp(16px, 5vw, 20px) 16px;
+    text-align:left;
+    background:transparent;
+  }
+  .masthead .kicker{
+    font-size:11px;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  .masthead h1{
+    font-weight:700;
+    font-size:clamp(30px, 6vw, 46px);
+    margin:0;
+    letter-spacing:-0.02em;
+  }
+  .rss-word{
+    display:inline-flex;
+    align-items:baseline;
+    gap:0.1em;
+  }
+  .rss-icon{
+    flex-shrink:0;
+  }
+  .masthead .sub{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-top:8px;
+    font-style:normal;
+  }
+  .toolbar{
+    width:100%;
+    max-width:1400px;
+    margin:0 auto;
+    padding:20px clamp(16px, 5vw, 20px) 14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .status{
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+  .status strong{color:var(--ink);}
+  button#refresh-all{
+    background:var(--ink);
+    color:#fff;
+    border:none;
+    padding:10px 18px;
+    font-weight:700;
+    font-size:13.5px;
+    letter-spacing:.03em;
+    cursor:pointer;
+    border-radius:2px;
+    transition:opacity .15s ease;
+  }
+  button#refresh-all:hover{opacity:.8;}
+  button#refresh-all:disabled{background:var(--ink-faint); cursor:default;}
+
+  main{
+    width:100%;
+    max-width:1400px;
+    margin:0 auto;
+    padding:18px clamp(16px, 5vw, 20px) 60px;
+  }
+
+  .outlet{
+    margin-top:26px;
+    border-top:1px solid var(--rule);
+    padding-top:14px;
+  }
+  .outlet-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+    cursor:pointer;
+    user-select:none;
+  }
+  .outlet-name{
+    font-weight:600;
+    font-size:20px;
+  }
+  .outlet-meta{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .state-text{font-weight:400;}
+  .state-text.ok{font-weight:700; color:var(--ink);}
+  .state-text.err{font-weight:700; font-style:italic;}
+
+  .items{
+    margin-top:10px;
+    display:grid;
+    gap:0;
+  }
+  .group-label{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:18px 0 4px;
+  }
+  .group-label:first-child{margin-top:0;}
+  .item{
+    padding:12px 0;
+    border-bottom:1px dashed var(--rule);
+  }
+  .item:last-child{border-bottom:none;}
+  .item-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .item-thumb{
+    width:44px;
+    height:44px;
+    background:#e4e4e4;
+    flex-shrink:0;
+    overflow:hidden;
+  }
+  .item-thumb img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .item-title-wrap{
+    flex:1;
+    min-width:0;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .item-title{
+    font-family:inherit;
+    background:none;
+    border:none;
+    padding:0;
+    text-align:left;
+    color:var(--ink);
+    font-weight:600;
+    font-size:15px;
+    line-height:1.3;
+    cursor:pointer;
+    flex:1;
+    min-width:0;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .item.expanded .item-title{white-space:normal;}
+  .item-title:hover{text-decoration:underline;}
+  .item-openlink{
+    flex-shrink:0;
+    color:var(--ink-soft);
+    text-decoration:none;
+    font-size:13px;
+  }
+  .item-openlink:hover{color:var(--ink);}
+  .item-side{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-shrink:0;
+  }
+  .item time{
+    font-size:11px;
+    color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .item-desc{
+    flex-basis:100%;
+    width:100%;
+    margin:8px 0 0 56px;
+    font-size:13.5px;
+    font-weight:400;
+    line-height:1.5;
+    color:var(--ink-soft);
+    display:none;
+  }
+  .item.expanded .item-desc{display:block;}
+  .copy-btn{
+    font-family:inherit;
+    font-size:10.5px;
+    font-weight:600;
+    background:#fff;
+    border:1px solid var(--rule);
+    color:var(--ink-soft);
+    padding:3px 8px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .copy-btn:hover{border-color:var(--ink); color:var(--ink);}
+  .copy-btn.copied{border-color:var(--ink); color:var(--ink); font-weight:700;}
+  .empty, .loading, .error-msg{
+    font-size:13.5px;
+    color:var(--ink-soft);
+    padding:8px 0;
+    font-style:italic;
+  }
+  .error-msg a{color:var(--ink); font-style:normal; font-weight:700;}
+
+  .collapsed .items{display:none;}
+  .chev{transition:transform .15s ease; display:inline-block;}
+  .collapsed .chev{transform:rotate(-90deg);}
+
+  footer{
+    width:100%;
+    max-width:1400px;
+    margin:0 auto;
+    padding:0 clamp(16px, 5vw, 20px) 40px;
+    font-size:11.5px;
+    color:var(--ink-soft);
+  }
+  footer a{color:var(--ink-soft);}
+
+  @media (max-width:700px){
+    .item-desc{margin-left:0;}
+  }
+
+  @media (max-width:520px){
+    .toolbar{flex-direction:column; align-items:stretch;}
+    button#refresh-all{width:100%;}
+    .status{order:1;}
+    .outlet-name{font-size:18px;}
+  }
+
+  .events-strip{
+    width:100%;
+    max-width:1400px;
+    margin:0 auto;
+    padding:10px clamp(16px, 5vw, 20px) 12px;
+    border-bottom:1px solid var(--rule);
+  }
+  .events-strip-title{
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  .events-strip-note{
+    font-size:10px;
+    color:var(--ink-faint);
+    margin-top:6px;
+    display:block;
+  }
+  .events-strip-head{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+  }
+
+  .cat-toggles{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .cat-toggle-btn{
+    font-family:inherit;
+    font-size:11.5px;
+    font-weight:600;
+    background:#fff;
+    border:1px solid var(--rule);
+    color:var(--ink-soft);
+    padding:5px 11px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    opacity:.45;
+  }
+  .cat-toggle-btn .sw{width:8px; height:8px; border-radius:50%; display:inline-block;}
+  .cat-toggle-btn.on{opacity:1; border-color:var(--ink-faint); color:var(--ink);}
+  .cat-curves-wrap{width:100%; line-height:0; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--rule);}
+  .cat-curves-wrap svg{width:100%; height:auto; display:block;}
+
+  .cal-today-btn{
+    font-family:inherit;
+    font-size:11px;
+    font-weight:600;
+    background:#fff;
+    border:1px solid var(--rule);
+    color:var(--ink-soft);
+    padding:5px 11px;
+    cursor:pointer;
+    margin-left:auto;
+  }
+  .cal-today-btn:hover{border-color:var(--ink); color:var(--ink);}
+
+  .cal-months-row{
+    display:flex;
+    gap:4px;
+    margin-bottom:10px;
+  }
+  .cal-month-btn{
+    font-family:inherit;
+    flex:1;
+    background:#fff;
+    border:1px solid var(--rule);
+    color:var(--ink-soft);
+    font-size:11px;
+    font-weight:600;
+    padding:7px 2px;
+    cursor:pointer;
+  }
+  .cal-month-btn:hover{border-color:var(--ink); color:var(--ink);}
+  .cal-month-btn.active{background:var(--ink); border-color:var(--ink); color:#fff; font-weight:700;}
+  .cal-month-btn:disabled{opacity:.3; cursor:default;}
+
+  .cal-grid{
+    display:flex;
+    gap:3px;
+  }
+  .cal-day{
+    font-family:inherit;
+    background:#fff;
+    border:1px solid var(--rule);
+    color:var(--ink);
+    flex:1 1 0;
+    min-width:0;
+    padding:5px 2px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:3px;
+    cursor:pointer;
+    text-align:center;
+  }
+  .cal-day:hover{border-color:var(--ink);}
+  .cal-day .day-wd{font-size:8px; font-weight:700; letter-spacing:.02em; color:var(--ink-soft); text-transform:uppercase;}
+  .cal-day .day-num{font-size:13px; font-weight:600;}
+  .cal-day.today{border-color:var(--ink); border-width:2px;}
+  .cal-day.today .day-num{font-weight:800;}
+  .cal-day.selected{background:#ececec; border-color:var(--ink); border-width:2px;}
+  .day-badge{
+    font-size:9.5px;
+    font-weight:700;
+    color:#fff;
+    background:var(--ink);
+    width:15px;
+    height:15px;
+    line-height:15px;
+    border-radius:50%;
+  }
+
+  @media (max-width:700px){
+    .cal-day .day-wd{display:none;}
+    .cal-day .day-num{font-size:11px;}
+    .day-badge{width:13px; height:13px; line-height:13px; font-size:8.5px;}
+  }
+
+  .events-list-hint{
+    font-size:11px;
+    color:var(--ink-soft);
+    font-weight:600;
+    margin:0 0 4px;
+  }
+  .events-list{
+    margin-top:12px;
+    display:grid;
+
+    gap:0;
+  }
+  .event-row{
+    display:grid;
+    grid-template-columns:130px minmax(160px,1fr) auto;
+    gap:14px;
+    align-items:baseline;
+    padding:8px 0;
+    border-bottom:1px dashed var(--rule);
+  }
+  .event-row:last-child{border-bottom:none;}
+  .event-date{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .event-title{
+    font-size:14px;
+    font-weight:600;
+    color:var(--ink);
+    text-decoration:none;
+  }
+  .event-title:hover{font-weight:700; text-decoration:underline;}
+  .event-venue{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    text-align:right;
+    white-space:nowrap;
+  }
+
+  @media (max-width:700px){
+    .event-row{grid-template-columns:1fr; gap:2px;}
+    .event-venue{text-align:left;}
+  }
+
+  .filters-bar{
+    width:100%;
+    max-width:1400px;
+    margin:0 auto;
+    padding:14px clamp(16px, 5vw, 20px);
+    display:flex;
+    align-items:center;
+    gap:20px;
+    flex-wrap:wrap;
+    border-bottom:1px solid var(--rule);
+  }
+  .filter-group{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .filter-group label{
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--ink-soft);
+  }
+  .search-row{
+    width:100%;
+    max-width:1400px;
+    margin:0 auto;
+    padding:10px clamp(16px, 5vw, 20px) 4px;
+  }
+  .filter-search{
+    font-family:inherit;
+    font-size:13px;
+    border:1px solid var(--rule);
+    padding:7px 10px;
+    width:280px;
+    max-width:100%;
+    background:#fff;
+    color:var(--ink);
+  }
+  .filter-search:focus{outline:none; border-color:var(--ink);}
+  .filters-bar select{
+    font-family:inherit;
+    font-size:13px;
+    border:1px solid var(--rule);
+    padding:6px 8px;
+    background:#fff;
+    color:var(--ink);
+  }
+  .filter-toggle{
+    font-family:inherit;
+    font-size:12.5px;
+    font-weight:600;
+    background:#fff;
+    color:var(--ink);
+    border:1px solid var(--ink);
+    padding:7px 12px;
+    cursor:pointer;
+  }
+  .filter-toggle.active{
+    background:var(--ink);
+    color:#fff;
+  }
+  .outlet-toggles{
+    width:100%;
+    max-width:1400px;
+    margin:0 auto;
+    padding:14px clamp(16px, 5vw, 20px) 0;
+  }
+  .outlet-toggles-title{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:8px;
+  }
+  .outlet-checklist{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 22px;
+  }
+  .outlet-checklist li{
+    display:flex;
+    align-items:center;
+    gap:7px;
+  }
+  .outlet-checklist input[type="checkbox"]{
+    width:14px;
+    height:14px;
+    accent-color:var(--ink);
+    cursor:pointer;
+  }
+  .outlet-checklist label{
+    font-size:13px;
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .outlet.hidden-by-filter{display:none;}
+
+  @media (max-width:520px){
+    .filters-bar{gap:12px 16px;}
+    .filter-search{width:100%;}
+    .filter-group{width:100%;}
+  }
+
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="status" id="status">Tocá "Actualizar noticias" para traer lo último.</div>
+  <button id="refresh-all">Actualizar noticias</button>
+</div>
+
+<div class="masthead">
+  <h1>Centinela <span class="rss-word">RSS<svg class="rss-icon" viewBox="0 0 24 24" width="0.72em" height="0.72em" aria-hidden="true"><circle cx="5" cy="19" r="2.4" fill="currentColor"/><path d="M4 11.5C10.9 11.5 16.5 17.1 16.5 24" stroke="currentColor" stroke-width="3.2" fill="none" stroke-linecap="round" transform="translate(0,-4)"/><path d="M4 4.5C14.5 4.5 23 13 23 23.5" stroke="currentColor" stroke-width="3.2" fill="none" stroke-linecap="round" transform="translate(0,-4)"/></svg></span></h1>
+</div>
+
+<div class="events-strip">
+  <div class="events-strip-head">
+    <span class="events-strip-title">Agenda de eventos</span>
+  </div>
+
+  <div class="cat-curves-wrap"><div class="cat-curves" id="cat-curves"></div></div>
+  <div class="cat-toggles" id="cat-toggles"></div>
+
+  <div class="cal-months-row" id="cal-months-row"></div>
+  <div class="cal-grid" id="cal-grid"></div>
+  <p class="events-list-hint" id="events-hint"></p>
+  <div class="events-list" id="events-list"></div>
+  <div class="events-strip-note">eventos cargados a mano · asuncion.live · disfrutandoparaguay.com</div>
+</div>
+
+<div class="filters-bar">
+  <div class="filter-group">
+    <label for="filter-freshness">Antigüedad</label>
+    <select id="filter-freshness">
+      <option value="all">Todas</option>
+      <option value="15m">Últimos 15 min</option>
+      <option value="30m">Últimos 30 min</option>
+      <option value="1h">Última hora</option>
+      <option value="3h">Últimas 3 hs</option>
+      <option value="6h">Últimas 6 hs</option>
+      <option value="today">Hoy</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="filter-quantity">Cantidad</label>
+    <select id="filter-quantity">
+      <option value="3" selected>3</option>
+      <option value="5">5</option>
+      <option value="10">10</option>
+    </select>
+  </div>
+  <button id="filter-latest-only" class="filter-toggle" type="button">Solo la última por sección</button>
+</div>
+
+<div class="outlet-toggles" id="outlet-toggles">
+  <div class="outlet-toggles-title">Medios</div>
+  <ul class="outlet-checklist" id="outlet-checklist"></ul>
+</div>
+
+<div class="search-row">
+  <input type="text" id="filter-search" class="filter-search" placeholder="Buscar por palabra clave…">
+</div>
+
+<main id="outlets"></main>
+
+<script>
+// ---- Fuentes ----
+// Cada medio puede tener 1 o más feeds RSS. Se listan combinados bajo el nombre del medio.
+const OUTLETS = [
+  {
+    name: "ABC Color",
+    site: "https://www.abc.com.py",
+    groups: [
+      { label: "Nacionales", url: "https://www.abc.com.py/arc/outboundfeeds/rss/nacionales/?outputType=xml" },
+      { label: "Mundo", url: "https://www.abc.com.py/arc/outboundfeeds/rss/mundo/?outputType=xml" },
+      { label: "Espectáculos", url: "https://www.abc.com.py/arc/outboundfeeds/rss/espectaculos/?outputType=xml" },
+      { label: "Ciencia", url: "https://www.abc.com.py/arc/outboundfeeds/rss/ciencia/?outputType=xml" },
+      { label: "Tecnología", url: "https://www.abc.com.py/arc/outboundfeeds/rss/tecnologia/?outputType=xml" }
+    ]
+  },
+  {
+    name: "Última Hora",
+    site: "https://www.ultimahora.com",
+    groups: [{ url: "https://rss.app/feeds/EOwVubebDnuPJDvm.xml" }]
+  },
+  {
+    name: "La Nación",
+    site: "https://www.lanacion.com.py",
+    groups: [{ url: "https://rss.app/feeds/6IgExGmTxK6Vuub8.xml" }]
+  },
+  {
+    name: "La Tribuna",
+    site: "https://www.latribuna.com.py",
+    groups: [{ url: "https://rss.app/feeds/HyMda9iJDOCcMASX.xml" }]
+  },
+  {
+    name: "ADN Digital",
+    site: "https://www.adndigital.com.py",
+    groups: [{ url: "https://www.adndigital.com.py/feed/" }]
+  },
+  {
+    name: "Diario Popular",
+    site: "https://www.popular.com.py",
+    groups: [{ url: "https://www.popular.com.py/feed/" }]
+  },
+  {
+    name: "Noticias CDE",
+    site: "https://noticiascde.com.py",
+    groups: [{ url: "https://noticiascde.com.py/feed/" }]
+  },
+  {
+    name: "Congreso Nacional (SILpy)",
+    site: "https://silpy.congreso.gov.py",
+    groups: [
+      { label: "Expedientes", url: "https://silpy.congreso.gov.py/web/FeedRss?opcionRSS=1" },
+      { label: "Leyes", url: "https://silpy.congreso.gov.py/web/FeedRss?opcionRSS=2" },
+      { label: "Objeciones", url: "https://silpy.congreso.gov.py/web/FeedRss?opcionRSS=3" }
+    ]
+  },
+
+  // --- X (Twitter) vía RSS.app ---
+  // 1. Entrá a rss.app, generá el feed de la cuenta/lista/hashtag que quieras seguir.
+  // 2. Copiá la URL que te da (algo como "https://rss.app/feeds/xxxxxxxx.xml").
+  // 3. Pegala reemplazando la URL de ejemplo de abajo y sacá el "//" del inicio del bloque.
+  //
+  // {
+  //   name: "X — Cuentas verificadas",
+  //   site: "https://x.com",
+  //   groups: [{ url: "https://rss.app/feeds/TU_ID_AQUI.xml" }]
+  // }
+
+];
+
+const MAX_ITEMS_PER_GROUP = 10; // techo absoluto pedido a cada feed
+const statusEl = document.getElementById("status");
+const outletsEl = document.getElementById("outlets");
+const refreshBtn = document.getElementById("refresh-all");
+const searchInput = document.getElementById("filter-search");
+const freshnessSelect = document.getElementById("filter-freshness");
+const quantitySelect = document.getElementById("filter-quantity");
+const latestOnlyBtn = document.getElementById("filter-latest-only");
+const outletTogglesEl = document.getElementById("outlet-toggles");
+
+const outletCache = new Map(); // outlet.name -> { anyOk, updatedLabel, results:[{group, items}] }
+const hiddenOutlets = new Set();
+const filters = { search: "", freshness: "all", quantity: 3, latestOnly: false };
+
+function fmtTime(dateStr){
+  const d = new Date(dateStr);
+  if (isNaN(d)) return "";
+  return d.toLocaleString("es-PY", {day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit"});
+}
+
+function stripAccents(s){
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function cleanDescription(html){
+  if (!html) return "";
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return (tmp.textContent || tmp.innerText || "").replace(/\s+/g, " ").trim();
+}
+
+// Igual que cleanDescription, pero conserva los saltos de párrafo (para el texto que se copia)
+function cleanDescriptionParagraphs(html){
+  if (!html) return "";
+  const withBreaks = html.replace(/<\/p>|<br\s*\/?>/gi, "\n\n");
+  const tmp = document.createElement("div");
+  tmp.innerHTML = withBreaks;
+  const raw = tmp.textContent || tmp.innerText || "";
+  return raw
+    .split(/\n{2,}/)
+    .map(p => p.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function buildOutletCard(outlet){
+  const card = document.createElement("section");
+  card.className = "outlet";
+  card.id = "outlet-" + outlet.name.replace(/\s+/g, "-");
+  card.innerHTML = `
+    <div class="outlet-head">
+      <div>
+        <span class="chev">▾</span>
+        <span class="outlet-name">${outlet.name}</span>
+      </div>
+      <div class="outlet-meta">
+        <span class="state-text">esperando actualización</span>
+        <a href="${outlet.site}" target="_blank" rel="noopener">abrir el sitio ↗</a>
+      </div>
+    </div>
+    <div class="items"><div class="loading">Sin cargar todavía.</div></div>
+  `;
+  card.querySelector(".outlet-head").addEventListener("click", () => {
+    card.classList.toggle("collapsed");
+  });
+  return card;
+}
+
+async function fetchFeed(url){
+  const api = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(url) + "&count=" + MAX_ITEMS_PER_GROUP;
+  const res = await fetch(api);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const data = await res.json();
+  if (data.status !== "ok") throw new Error(data.message || "feed inválido");
+  return data.items || [];
+}
+
+// Trae y ordena los datos crudos de un medio, sin tocar el DOM todavía.
+async function fetchOutletData(outlet){
+  const results = await Promise.all(outlet.groups.map(async g => {
+    try{
+      const items = await fetchFeed(g.url);
+      items.sort((a,b) => new Date(b.pubDate) - new Date(a.pubDate));
+      return { group: g, items, ok: true };
+    }catch(e){
+      return { group: g, items: [], ok: false };
+    }
+  }));
+  const anyOk = results.some(r => r.ok);
+  outletCache.set(outlet.name, {
+    anyOk,
+    updatedLabel: "actualizado " + new Date().toLocaleTimeString("es-PY", {hour:"2-digit", minute:"2-digit"}),
+    results
+  });
+}
+
+function itemMatchesFilters(it){
+  if (filters.freshness !== "all"){
+    const d = new Date(it.pubDate);
+    if (isNaN(d)) return false;
+    const now = new Date();
+    let cutoff;
+    if (filters.freshness === "15m") cutoff = new Date(now - 15*60*1000);
+    else if (filters.freshness === "30m") cutoff = new Date(now - 30*60*1000);
+    else if (filters.freshness === "1h") cutoff = new Date(now - 60*60*1000);
+    else if (filters.freshness === "3h") cutoff = new Date(now - 3*60*60*1000);
+    else if (filters.freshness === "6h") cutoff = new Date(now - 6*60*60*1000);
+    else if (filters.freshness === "today") cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (d < cutoff) return false;
+  }
+  if (filters.search){
+    const needle = stripAccents(filters.search.toLowerCase());
+    const haystack = stripAccents((it.title + " " + cleanDescription(bestRawDescription(it))).toLowerCase());
+    if (!haystack.includes(needle)) return false;
+  }
+  return true;
+}
+
+function fmtDateForShare(dateStr){
+  const d = new Date(dateStr);
+  if (isNaN(d)) return "";
+  const months = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+  return `${String(d.getDate()).padStart(2,"0")}/${months[d.getMonth()]}/${d.getFullYear()}`;
+}
+
+function escapeHTML(s){
+  return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Algunos feeds mandan el resumen corto en "description" y el texto completo en "content" (o al revés).
+// Usamos el que tenga más texto real, para no perder contenido.
+function bestRawDescription(it){
+  const d = it.description || "";
+  const c = it.content || "";
+  return cleanDescription(c).length > cleanDescription(d).length ? c : d;
+}
+
+function buildItemRow(it, outletName){
+  const rawDesc = bestRawDescription(it);
+  const desc = cleanDescription(rawDesc);
+  const thumbUrl = it.thumbnail || it.enclosure?.link || "";
+  const row = document.createElement("div");
+  row.className = "item";
+  row.innerHTML = `
+    <div class="item-row">
+      <div class="item-thumb">${thumbUrl ? `<img src="${thumbUrl}" alt="" loading="lazy" onerror="this.parentElement.innerHTML=''">` : ""}</div>
+      <div class="item-title-wrap">
+        <button type="button" class="item-title">${escapeHTML(it.title)}</button>
+        <a class="item-openlink" href="${it.link}" target="_blank" rel="noopener" title="Abrir la nota original">↗</a>
+      </div>
+      <div class="item-side">
+        <time class="item-time">${fmtTime(it.pubDate)}</time>
+        <button type="button" class="copy-btn" title="Copiar formateado para WhatsApp">Copiar</button>
+      </div>
+      <p class="item-desc">${escapeHTML(desc) || "Este medio no envía resumen para esta noticia — usá el ↗ para leerla completa."}</p>
+    </div>
+  `;
+  row.querySelector(".item-title").addEventListener("click", () => {
+    row.classList.toggle("expanded");
+  });
+  row.querySelector(".copy-btn").addEventListener("click", (ev) => {
+    const btn = ev.currentTarget;
+    const descParagraphs = cleanDescriptionParagraphs(rawDesc);
+    const text = `*${fmtDateForShare(it.pubDate)}*\n\n*${it.title}*\n\n${descParagraphs}`;
+    navigator.clipboard.writeText(text).then(() => {
+      const original = btn.textContent;
+      btn.textContent = "¡Copiado!";
+      btn.classList.add("copied");
+      setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1500);
+    });
+  });
+  return row;
+}
+
+// Re-dibuja un medio a partir de lo que ya está en caché, aplicando filtros. No hace red.
+function renderOutletCard(outlet, card){
+  const cache = outletCache.get(outlet.name);
+  const stateText = card.querySelector(".state-text");
+  const itemsEl = card.querySelector(".items");
+  if (!cache) return;
+
+  if (!cache.anyOk){
+    stateText.className = "state-text err";
+    stateText.textContent = "no se pudo cargar";
+    itemsEl.innerHTML = `<div class="error-msg">No se pudo traer este feed ahora.
+      <a href="${outlet.site}" target="_blank" rel="noopener">Abrir ${outlet.name} directamente ↗</a></div>`;
+    return;
+  }
+
+  stateText.className = "state-text ok";
+  stateText.textContent = cache.updatedLabel;
+
+  const showLabels = outlet.groups.length > 1;
+  const limit = filters.latestOnly ? 1 : (filters.quantity === "all" ? Infinity : filters.quantity);
+  itemsEl.innerHTML = "";
+  let anyRendered = false;
+
+  cache.results.forEach(({group, items, ok}) => {
+    const filteredItems = items.filter(itemMatchesFilters);
+    const toShow = filteredItems.slice(0, limit);
+
+    if (showLabels){
+      const h = document.createElement("div");
+      h.className = "group-label";
+      let suffix = "";
+      if (!ok) suffix = " · no disponible";
+      else if (items.length === 0) suffix = " · sin novedades";
+      else if (toShow.length === 0) suffix = " · sin resultados con estos filtros";
+      h.textContent = group.label + suffix;
+      itemsEl.appendChild(h);
+    }
+
+    toShow.forEach(it => { itemsEl.appendChild(buildItemRow(it, outlet.name)); anyRendered = true; });
+  });
+
+  if (!anyRendered && !showLabels){
+    itemsEl.innerHTML = `<div class="empty">Sin noticias que coincidan con estos filtros.</div>`;
+  }
+}
+
+function renderAllOutlets(){
+  Array.from(outletsEl.children).forEach((card, i) => {
+    const outlet = OUTLETS[i];
+    const isHidden = hiddenOutlets.has(outlet.name);
+    card.classList.toggle("hidden-by-filter", isHidden);
+    if (!isHidden) renderOutletCard(outlet, card);
+  });
+}
+
+const outletChecklistEl = document.getElementById("outlet-checklist");
+
+function buildOutletToggles(){
+  outletChecklistEl.innerHTML = "";
+  OUTLETS.forEach((outlet, i) => {
+    const id = "outlet-check-" + i;
+    const li = document.createElement("li");
+    li.innerHTML = `<input type="checkbox" id="${id}" checked><label for="${id}">${outlet.name}</label>`;
+    li.querySelector("input").addEventListener("change", (e) => {
+      if (e.target.checked) hiddenOutlets.delete(outlet.name);
+      else hiddenOutlets.add(outlet.name);
+      renderAllOutlets();
+    });
+    outletChecklistEl.appendChild(li);
+  });
+}
+
+async function refreshAll(){
+  refreshBtn.disabled = true;
+  refreshBtn.textContent = "Actualizando…";
+  statusEl.innerHTML = `Actualizando <strong>${OUTLETS.length}</strong> medios…`;
+
+  const cards = Array.from(outletsEl.children);
+  cards.forEach(card => {
+    card.querySelector(".state-text").textContent = "cargando…";
+    card.querySelector(".items").innerHTML = `<div class="loading">Cargando…</div>`;
+  });
+
+  await Promise.all(OUTLETS.map(outlet => fetchOutletData(outlet)));
+  renderAllOutlets();
+
+  statusEl.innerHTML = `Última actualización: <strong>${new Date().toLocaleString("es-PY")}</strong>`;
+  refreshBtn.disabled = false;
+  refreshBtn.textContent = "Actualizar noticias";
+}
+
+OUTLETS.forEach(outlet => outletsEl.appendChild(buildOutletCard(outlet)));
+buildOutletToggles();
+refreshBtn.addEventListener("click", refreshAll);
+
+searchInput.addEventListener("input", () => {
+  filters.search = searchInput.value.trim();
+  renderAllOutlets();
+});
+freshnessSelect.addEventListener("change", () => {
+  filters.freshness = freshnessSelect.value;
+  renderAllOutlets();
+});
+quantitySelect.addEventListener("change", () => {
+  filters.quantity = quantitySelect.value === "all" ? "all" : parseInt(quantitySelect.value, 10);
+  renderAllOutlets();
+});
+latestOnlyBtn.addEventListener("click", () => {
+  filters.latestOnly = !filters.latestOnly;
+  latestOnlyBtn.classList.toggle("active", filters.latestOnly);
+  renderAllOutlets();
+});
+
+// Primera carga automática al abrir el archivo
+refreshAll();
+
+// ---- Agenda de eventos ----
+// Cargada a mano por Claude (búsqueda puntual en asuncion.live y disfrutandoparaguay.com), NO vía RSS.
+// Para actualizarla: pedile a Claude que vuelva a buscar eventos y reemplace este array.
+const EVENTS = [
+  { title:"EXPO PARAGUAY 2", start:"2026-07-11", end:"2026-07-26", venue:"Ruedo Central de la EXPO MRA, Mariano Roque Alonso", link:"https://asuncion.live/eventos/expo-paraguay-2/", category:"ferias" },
+  { title:"Secretos del Palacio", start:"2026-07-19", end:"2026-07-19", time:"10:00", venue:"Palacio de López, Asunción", free:true, link:"https://asuncion.live/eventos/secretos-del-palacio/", category:"cultural" },
+  { title:"MANGORÉ – Ciclo de cine paraguayo", start:"2026-07-20", end:"2026-07-20", time:"19:00", venue:"Alianza Francesa de Asunción", link:"https://asuncion.live/eventos/mangore-ciclo-de-cine-paraguayo/", category:"cultural" },
+  { title:"Sinfonía de Película", start:"2026-07-23", end:"2026-07-23", time:"21:00", venue:"Teatro Municipal Ignacio A. Pane", link:"https://asuncion.live/eventos/sinfonia-de-pelicula/", category:"conciertos" },
+  { title:"Abel Pintos en Paraguay", start:"2026-07-24", end:"2026-07-24", time:"21:00", venue:"Gran Teatro del Banco Central del Paraguay", link:"https://asuncion.live/eventos/abel-pintos-en-paraguay/", category:"conciertos" },
+  { title:"ASU Coffee Fest 2026", start:"2026-07-25", end:"2026-07-26", venue:"Centro de Convenciones CU, Asunción", link:"https://asuncion.live/eventos/asu-coffee-fest-2026/", category:"ferias" },
+  { title:"Fito Páez: una noche para cantar, recordar y celebrar su música", start:"2026-07-25", end:"2026-07-25", time:"20:00", venue:"Teatro Municipal Ignacio A. Pane", link:"https://asuncion.live/eventos/fito-paez-una-noche-para-cantar-recordar-y-celebrar-su-musica/", category:"conciertos" },
+  { title:"Asunción, Hoteles con Historia — Edición especial", start:"2026-07-26", end:"2026-07-26", time:"16:00", venue:"Gran Hotel del Paraguay", link:"https://asuncion.live/eventos/asuncion-hoteles-con-historia-edicion-especial/", category:"cultural" },
+  { title:"Profesión Cinero – Ciclo de cine paraguayo", start:"2026-07-27", end:"2026-07-27", time:"19:00", venue:"Alianza Francesa de Asunción", link:"https://asuncion.live/eventos/profesion-cinero-ciclo-de-cine-paraguayo/", category:"cultural" },
+  { title:"La Bayadera", start:"2026-08-01", end:"2026-08-09", venue:"Teatro Municipal Ignacio A. Pane", link:"https://asuncion.live/eventos/la-bayadera/", category:"cultural" },
+  { title:"Vinilo Cooltural", start:"2026-08-01", end:"2026-08-01", time:"15:00", venue:"Puerto de Asunción", link:"https://asuncion.live/eventos/vinilo-cooltural-la-feria-de-vinilos-mas-grande-del-paraguay/", category:"ferias" },
+  { title:"El Retrovisor 2026", start:"2026-08-01", end:"2026-08-01", time:"21:00", venue:"Centro de Convenciones Mariscal López Shopping", link:"https://asuncion.live/eventos/el-retrovisor-2026/", category:"ferias" },
+  { title:"Bodas de Sangre de Federico García Lorca", start:"2026-08-07", end:"2026-08-09", time:"20:00", venue:"Estero Bellaco 302, Asunción", link:"https://asuncion.live/eventos/bodas-de-sangre-de-federico-garcia-lorca/", category:"cultural" },
+  { title:"Arcángel en Paraguay", start:"2026-08-08", end:"2026-08-08", time:"20:00", venue:"Jockey Club Paraguayo", link:"https://asuncion.live/eventos/arcangel-en-paraguay/", category:"conciertos" },
+  { title:"El Especial de Luís Álvarez", start:"2026-08-10", end:"2026-08-10", time:"20:30", venue:"Teatro Municipal Ignacio A. Pane", link:"https://asuncion.live/eventos/el-especial-de-luis-alvarez-lorenzo-alvarez-el-alma-del-violin-100-anos/", category:"conciertos" },
+  { title:"Salamandra 26 Años", start:"2026-08-22", end:"2026-08-22", time:"21:00", venue:"Voüdevil Venue, Asunción", link:"https://asuncion.live/eventos/salamandra-26-anos/", category:"conciertos" },
+  { title:"Cuarteto de Nos en Paraguay", start:"2026-08-29", end:"2026-08-29", time:"20:00", venue:"Puerto de Asunción", link:"https://asuncion.live/eventos/cuarteto-de-nos-en-paraguay/", category:"conciertos" },
+  { title:"Sobrevive la Música – Ciclo de cine paraguayo", start:"2026-08-31", end:"2026-08-31", time:"19:00", venue:"Alianza Francesa de Asunción", link:"https://asuncion.live/eventos/sobrevive-la-musica-ciclo-de-cine-paraguayo/", category:"cultural" },
+  { title:"This Is Michael", start:"2026-09-15", end:"2026-09-15", time:"21:00", venue:"Gran Teatro del Banco Central del Paraguay", link:"https://asuncion.live/eventos/this-is-michael/", category:"conciertos" },
+  { title:"PJ Morton llega a Paraguay", start:"2026-09-18", end:"2026-09-18", time:"21:00", venue:"Gran Teatro del Banco Central del Paraguay", link:"https://asuncion.live/eventos/pj-morton-llega-a-paraguay/", category:"conciertos" },
+  { title:"Luciano Pereira en Paraguay", start:"2026-09-19", end:"2026-09-19", time:"20:00", venue:"Arena SND, Asunción", link:"https://asuncion.live/eventos/luciano-pereira-en-paraguay/", category:"conciertos" },
+  { title:"El Gran Show – Teatro Musical", start:"2026-09-27", end:"2026-09-27", time:"19:00", venue:"Teatro Municipal Ignacio A. Pane", link:"https://asuncion.live/eventos/el-gran-show-teatro-musical/", category:"cultural" },
+  { title:"Los Nocheros – 40 Años", start:"2026-10-16", end:"2026-10-16", time:"21:00", venue:"Gran Teatro del Banco Central del Paraguay", link:"https://asuncion.live/eventos/los-nocheros-40-anos/", category:"conciertos" },
+  { title:"Luciano Pereyra", start:"2026-10-31", end:"2026-10-31", venue:"Asunción", link:"https://www.disfrutandoparaguay.com/calendario-de-eventos/musicales/luciano-pereyra", category:"conciertos" },
+  { title:"Ed Sheeran en Paraguay", start:"2026-11-26", end:"2026-11-26", time:"20:00", venue:"Estadio La Nueva Olla, Asunción", link:"https://asuncion.live/eventos/ed-sheeran-en-paraguay/", category:"conciertos" },
+  { title:"Gorillaz en Paraguay – The Mountain Tour 2026", start:"2026-12-01", end:"2026-12-01", time:"20:00", venue:"Jockey Club Paraguayo", link:"https://asuncion.live/eventos/gorillaz-en-paraguay-the-mountain-tour-2026/", category:"conciertos" }
+];
+
+function pad2(n){ return String(n).padStart(2, "0"); }
+function todayISO(){ return isoOf(new Date()); }
+function isoOf(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function dLabel(iso, opts){ return new Date(iso + "T00:00:00").toLocaleDateString("es-PY", opts); }
+function countOn(dateStr){
+  return EVENTS.filter(e => e.start <= dateStr && e.end >= dateStr).length;
+}
+
+let eventsSelected = null;
+
+// Convierte una lista de puntos [x,y] en un path SVG suavizado (Catmull-Rom -> Bézier)
+function smoothPath(pts){
+  if (pts.length < 3) return "M" + pts.map(p => p.join(",")).join(" L");
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++){
+    const p0 = pts[i === 0 ? 0 : i - 1];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2 < pts.length ? i + 2 : i + 1];
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
+const CAL_MIN = new Date(2026, 6, 1);   // julio 2026 — no hay datos antes
+const CAL_MAX = new Date(2026, 11, 1);  // diciembre 2026 — no hay datos después
+const MONTH_NAMES_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
+// Arranca en el mes de hoy si cae dentro del rango con datos; si no, arranca en julio 2026
+const today0 = new Date();
+let calRefDate = (today0 >= CAL_MIN && today0 <= new Date(2026, 11, 31))
+  ? new Date(today0.getFullYear(), today0.getMonth(), 1)
+  : new Date(CAL_MIN);
+
+const MONTH_ABBR_ES = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+
+function buildMonthsRow(){
+  const row = document.getElementById("cal-months-row");
+  row.innerHTML = "";
+  for (let m = 0; m < 12; m++){
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cal-month-btn";
+    btn.textContent = MONTH_ABBR_ES[m];
+    const outOfRange = m < CAL_MIN.getMonth() || m > CAL_MAX.getMonth();
+    if (outOfRange){
+      btn.disabled = true;
+    } else {
+      btn.addEventListener("click", () => {
+        calRefDate = new Date(2026, m, 1);
+        renderMonthCalendar();
+      });
+    }
+    row.appendChild(btn);
+  }
+}
+buildMonthsRow();
+
+function renderMonthCalendar(){
+  const year = calRefDate.getFullYear(), month = calRefDate.getMonth();
+  document.querySelectorAll(".cal-month-btn").forEach((btn, i) => btn.classList.toggle("active", i === month));
+
+  const grid = document.getElementById("cal-grid");
+  grid.innerHTML = "";
+  const todayStr = todayISO();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const WD = ["LUN","MAR","MIÉ","JUE","VIE","SÁB","DOM"];
+
+  for (let dayNum = 1; dayNum <= daysInMonth; dayNum++){
+    const d = new Date(year, month, dayNum);
+    const iso = isoOf(d);
+    const count = countOn(iso);
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "cal-day"
+      + (iso === todayStr ? " today" : "")
+      + (iso === eventsSelected ? " selected" : "");
+    const wd = WD[(d.getDay() + 6) % 7];
+    cell.innerHTML = `<span class="day-wd">${wd}</span><span class="day-num">${dayNum}</span>${count ? `<span class="day-badge">${count}</span>` : ""}`;
+    cell.addEventListener("click", () => {
+      eventsSelected = (eventsSelected === iso) ? null : iso;
+      renderMonthCalendar();
+      renderEventsList();
+    });
+    grid.appendChild(cell);
+  }
+}
+
+const EVENTS_PREVIEW_COUNT = 5;
+let eventsShowAll = false;
+
+function renderEventsList(){
+  const listEl = document.getElementById("events-list");
+  const hintEl = document.getElementById("events-hint");
+  const today = todayISO();
+  const upcoming = EVENTS.filter(e => e.end >= today).sort((a,b) => a.start.localeCompare(b.start));
+
+  let items, hintHTML;
+  if (eventsSelected){
+    items = EVENTS.filter(e => e.start <= eventsSelected && e.end >= eventsSelected)
+      .sort((a,b) => a.start.localeCompare(b.start));
+    hintHTML = `${dLabel(eventsSelected,{day:"2-digit",month:"long"})} · <a href="#" id="events-clear" style="color:inherit">ver todos</a>`;
+  } else if (eventsShowAll){
+    items = upcoming;
+    hintHTML = `Todos los eventos (${upcoming.length}) · <a href="#" id="events-clear" style="color:inherit">ver menos</a>`;
+  } else {
+    items = upcoming.slice(0, EVENTS_PREVIEW_COUNT);
+    hintHTML = upcoming.length > EVENTS_PREVIEW_COUNT
+      ? `Próximos eventos · <a href="#" id="events-clear" style="color:inherit">ver todos (${upcoming.length})</a>`
+      : "Próximos eventos";
+  }
+  hintEl.innerHTML = hintHTML;
+  const clearLink = document.getElementById("events-clear");
+  if (clearLink) clearLink.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    if (eventsSelected){
+      eventsSelected = null;
+    } else {
+      eventsShowAll = !eventsShowAll;
+    }
+    renderMonthCalendar();
+    renderEventsList();
+  });
+
+  listEl.innerHTML = "";
+  if (!items.length){
+    listEl.innerHTML = `<div class="empty">Sin eventos para esta fecha.</div>`;
+    return;
+  }
+  items.forEach(e => {
+    const dateLabel = e.start === e.end
+      ? dLabel(e.start, {day:"2-digit", month:"short"})
+      : `${dLabel(e.start, {day:"2-digit", month:"short"})}–${dLabel(e.end, {day:"2-digit", month:"short"})}`;
+    const row = document.createElement("div");
+    row.className = "event-row";
+    row.innerHTML = `
+      <div class="event-date">${dateLabel}${e.time ? " · " + e.time : ""}</div>
+      <a class="event-title" href="${e.link}" target="_blank" rel="noopener">${e.title}</a>
+      <div class="event-venue">${e.venue}${e.free ? " · Gratuito" : ""}</div>
+    `;
+    listEl.appendChild(row);
+  });
+}
+
+renderMonthCalendar();
+renderEventsList();
+
+// Colores bien tenues y apagados, muy poco saturados, para que las curvas superpuestas no compitan entre sí
+const CATEGORIES = [
+  { key:"conciertos", label:"Conciertos", color:"#8a95a6" },
+  { key:"cultural",   label:"Cultural",   color:"#9aa88e" },
+  { key:"ferias",     label:"Ferias",     color:"#b3a184" },
+  { key:"clima",      label:"Clima",      color:"#84a3ad" }
+];
+const catActive = new Set(CATEGORIES.map(c => c.key));
+let weatherData = null; // { dates:[...], max:[...], min:[...] } — pronóstico real, solo próx. ~16 días
+
+async function loadWeather(){
+  try{
+    const url = "https://api.open-meteo.com/v1/forecast?latitude=-25.2637&longitude=-57.5759"
+      + "&daily=temperature_2m_max,temperature_2m_min&timezone=America%2FAsuncion&forecast_days=16";
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.daily?.time) return;
+    weatherData = { dates: data.daily.time, max: data.daily.temperature_2m_max, min: data.daily.temperature_2m_min };
+    renderCatCurves();
+  }catch(e){ /* sin pronóstico disponible ahora; el resto de las curvas sigue igual */ }
+}
+
+function buildCatToggles(){
+  const wrap = document.getElementById("cat-toggles");
+  wrap.innerHTML = "";
+  CATEGORIES.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cat-toggle-btn on";
+    btn.innerHTML = `<span class="sw" style="background:${cat.color}"></span>${cat.label}`;
+    btn.addEventListener("click", () => {
+      if (catActive.has(cat.key)){ catActive.delete(cat.key); btn.classList.remove("on"); }
+      else { catActive.add(cat.key); btn.classList.add("on"); }
+      renderCatCurves();
+    });
+    wrap.appendChild(btn);
+  });
+
+  const todayBtn = document.createElement("button");
+  todayBtn.type = "button";
+  todayBtn.className = "cal-today-btn";
+  todayBtn.textContent = "Hoy";
+  todayBtn.addEventListener("click", () => {
+    calRefDate = (today0 >= CAL_MIN && today0 <= new Date(2026, 11, 31))
+      ? new Date(today0.getFullYear(), today0.getMonth(), 1)
+      : new Date(CAL_MIN);
+    renderMonthCalendar();
+  });
+  wrap.appendChild(todayBtn);
+}
+
+function renderCatCurves(){
+  const el = document.getElementById("cat-curves");
+  const W = 1000, H = 90, PAD_TOP = 8, PAD_BOTTOM = 14;
+  const start = CAL_MIN, end = new Date(2026, 11, 31);
+  const totalDays = Math.round((end - start) / 86400000);
+  const xFor = d => (Math.round((d - start) / 86400000) / totalDays) * W;
+  const baseline = H - PAD_BOTTOM;
+
+  function addCurve(cat, pts){
+    const yScaled = pts.map(p => [p[0], p[1]]);
+    const lineD = smoothPath(yScaled);
+    const areaD = `${lineD} L${yScaled[yScaled.length-1][0].toFixed(1)},${baseline} L${yScaled[0][0].toFixed(1)},${baseline} Z`;
+    const gid = "catgrad-" + cat.key;
+    defs += `<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${cat.color}" stop-opacity="0.32"></stop>
+      <stop offset="100%" stop-color="${cat.color}" stop-opacity="0"></stop>
+    </linearGradient>`;
+    paths += `<path d="${areaD}" fill="url(#${gid})"></path>`;
+    paths += `<path d="${lineD}" fill="none" stroke="${cat.color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"></path>`;
+  }
+
+  let defs = "", paths = "";
+
+  CATEGORIES.filter(c => c.key !== "clima").forEach(cat => {
+    if (!catActive.has(cat.key)) return;
+    const catEvents = EVENTS.filter(e => e.category === cat.key);
+    const weekPts = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 7)){
+      const bucketEnd = new Date(d); bucketEnd.setDate(bucketEnd.getDate() + 6);
+      const count = catEvents.filter(e => e.start <= isoOf(bucketEnd) && e.end >= isoOf(d)).length;
+      weekPts.push({ x: xFor(new Date(d.getTime() + 3*86400000)), count });
+    }
+    const maxC = Math.max(1, ...weekPts.map(p => p.count));
+    const yFor = c => H - PAD_BOTTOM - (c / maxC) * (H - PAD_TOP - PAD_BOTTOM);
+    addCurve(cat, weekPts.map(p => [p.x, yFor(p.count)]));
+  });
+
+  if (catActive.has("clima") && weatherData){
+    const cat = CATEGORIES.find(c => c.key === "clima");
+    const avgTemps = weatherData.dates.map((_, i) => (weatherData.max[i] + weatherData.min[i]) / 2);
+    const tMin = Math.min(...weatherData.min), tMax = Math.max(...weatherData.max);
+    const tRange = Math.max(1, tMax - tMin);
+    const tYFor = t => PAD_TOP + (1 - (t - tMin) / tRange) * (H - PAD_TOP - PAD_BOTTOM);
+    const pts = weatherData.dates.map((dateStr, i) => [xFor(new Date(dateStr + "T00:00:00")), tYFor(avgTemps[i])]);
+    addCurve(cat, pts);
+  }
+
+  const monthLabels = [6,7,8,9,10,11].map(m => {
+    const x = xFor(new Date(2026, m, 1));
+    const label = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"][m];
+    return `<text x="${x.toFixed(1)}" y="${H-2}" font-size="8" font-family="inherit" fill="var(--ink-faint)">${label}</text>`;
+  }).join("");
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs>${defs}</defs>${paths}${monthLabels}</svg>`;
+}
+
+buildCatToggles();
+renderCatCurves();
+loadWeather();
+</script>
+</body>
+</html>
