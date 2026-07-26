@@ -341,8 +341,11 @@
   }
   .cat-toggle-btn .sw{width:8px; height:8px; border-radius:50%; display:inline-block;}
   .cat-toggle-btn.on{opacity:1; border-color:var(--ink-faint); color:var(--ink);}
-  .cat-curves-wrap{width:100%; line-height:0; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--rule);}
+  .cat-curves-wrap{width:100%; line-height:0; margin-bottom:6px;}
   .cat-curves-wrap svg{width:100%; height:auto; display:block;}
+  .clima-wrap{width:100%; line-height:0; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--rule);}
+  .clima-empty{font-size:11px; color:var(--ink-faint); font-style:italic; line-height:1.4;}
+  .clima-wrap svg{width:100%; height:auto; display:block;}
 
   .cal-today-btn{
     font-family:inherit;
@@ -382,6 +385,7 @@
   .cal-grid{
     display:flex;
     gap:3px;
+    margin-bottom:10px;
   }
   .cal-day{
     font-family:inherit;
@@ -600,11 +604,12 @@
     <span class="events-strip-title">Agenda de eventos</span>
   </div>
 
-  <div class="cat-curves-wrap"><div class="cat-curves" id="cat-curves"></div></div>
-  <div class="cat-toggles" id="cat-toggles"></div>
-
   <div class="cal-months-row" id="cal-months-row"></div>
   <div class="cal-grid" id="cal-grid"></div>
+  <div class="cat-curves-wrap"><div class="cat-curves" id="cat-curves"></div></div>
+  <div class="clima-wrap" id="clima-wrap" hidden><div class="clima-line" id="clima-line"></div></div>
+  <div class="cat-toggles" id="cat-toggles"></div>
+
   <p class="events-list-hint" id="events-hint"></p>
   <div class="events-list" id="events-list"></div>
   <div class="events-strip-note">eventos cargados a mano · asuncion.live · disfrutandoparaguay.com</div>
@@ -1163,6 +1168,9 @@ function renderMonthCalendar(){
     });
     grid.appendChild(cell);
   }
+
+  renderCatCurves();
+  renderClimaLine();
 }
 
 const EVENTS_PREVIEW_COUNT = 5;
@@ -1221,7 +1229,6 @@ function renderEventsList(){
   });
 }
 
-renderMonthCalendar();
 renderEventsList();
 
 // Colores bien tenues y apagados, muy poco saturados, para que las curvas superpuestas no compitan entre sí
@@ -1243,7 +1250,7 @@ async function loadWeather(){
     const data = await res.json();
     if (!data.daily?.time) return;
     weatherData = { dates: data.daily.time, max: data.daily.temperature_2m_max, min: data.daily.temperature_2m_min };
-    renderCatCurves();
+    renderClimaLine();
   }catch(e){ /* sin pronóstico disponible ahora; el resto de las curvas sigue igual */ }
 }
 
@@ -1259,6 +1266,7 @@ function buildCatToggles(){
       if (catActive.has(cat.key)){ catActive.delete(cat.key); btn.classList.remove("on"); }
       else { catActive.add(cat.key); btn.classList.add("on"); }
       renderCatCurves();
+      renderClimaLine();
     });
     wrap.appendChild(btn);
   });
@@ -1278,62 +1286,115 @@ function buildCatToggles(){
 
 function renderCatCurves(){
   const el = document.getElementById("cat-curves");
-  const W = 1000, H = 90, PAD_TOP = 8, PAD_BOTTOM = 14;
-  const start = CAL_MIN, end = new Date(2026, 11, 31);
-  const totalDays = Math.round((end - start) / 86400000);
-  const xFor = d => (Math.round((d - start) / 86400000) / totalDays) * W;
-  const baseline = H - PAD_BOTTOM;
+  const W = 1000;
+  const ROW_H = 13, BAR_H = 9, TOP_PAD = 6;
+  const year = calRefDate.getFullYear(), month = calRefDate.getMonth();
+  const monthStart = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const colW = W / daysInMonth;
+  // mismo eje que la fila de días de arriba: columna = día del mes
+  const xForDay = dayNum => (dayNum - 1) * colW;
+  const todayStr = todayISO();
 
-  function addCurve(cat, pts){
-    const yScaled = pts.map(p => [p[0], p[1]]);
-    const lineD = smoothPath(yScaled);
-    const areaD = `${lineD} L${yScaled[yScaled.length-1][0].toFixed(1)},${baseline} L${yScaled[0][0].toFixed(1)},${baseline} Z`;
-    const gid = "catgrad-" + cat.key;
-    defs += `<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${cat.color}" stop-opacity="0.32"></stop>
-      <stop offset="100%" stop-color="${cat.color}" stop-opacity="0"></stop>
-    </linearGradient>`;
-    paths += `<path d="${areaD}" fill="url(#${gid})"></path>`;
-    paths += `<path d="${lineD}" fill="none" stroke="${cat.color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"></path>`;
-  }
-
-  let defs = "", paths = "";
+  let bars = "";
+  let bands = "";
+  let rowsUsed = 0;
 
   CATEGORIES.filter(c => c.key !== "clima").forEach(cat => {
     if (!catActive.has(cat.key)) return;
-    const catEvents = EVENTS.filter(e => e.category === cat.key);
-    const weekPts = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 7)){
-      const bucketEnd = new Date(d); bucketEnd.setDate(bucketEnd.getDate() + 6);
-      const count = catEvents.filter(e => e.start <= isoOf(bucketEnd) && e.end >= isoOf(d)).length;
-      weekPts.push({ x: xFor(new Date(d.getTime() + 3*86400000)), count });
-    }
-    const maxC = Math.max(1, ...weekPts.map(p => p.count));
-    const yFor = c => H - PAD_BOTTOM - (c / maxC) * (H - PAD_TOP - PAD_BOTTOM);
-    addCurve(cat, weekPts.map(p => [p.x, yFor(p.count)]));
+    const catEvents = EVENTS
+      .filter(e => e.category === cat.key && e.start <= isoOf(new Date(year, month + 1, 0)) && e.end >= isoOf(monthStart))
+      .sort((a,b) => a.start.localeCompare(b.start));
+    const bandTop = TOP_PAD - 3 + rowsUsed * ROW_H;
+    catEvents.forEach((ev, i) => {
+      const y = TOP_PAD + (rowsUsed + i) * ROW_H;
+      const evStart = new Date(ev.start + "T00:00:00");
+      const evEnd = new Date(ev.end + "T00:00:00");
+      // recorta a los límites del mes visible, por si el evento empieza o termina afuera
+      const dayFrom = evStart < monthStart ? 1 : evStart.getDate();
+      const dayTo = evEnd.getMonth() === month ? evEnd.getDate() : daysInMonth;
+      const x1 = xForDay(dayFrom);
+      const x2 = xForDay(dayTo) + colW;
+      const w = Math.max(x2 - x1 - 2, 4);
+      const label = ev.title.length > 22 ? ev.title.slice(0, 20) + "…" : ev.title;
+      bars += `<rect x="${x1.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${BAR_H}" rx="${BAR_H/2}" fill="${cat.color}" opacity="0.82"><title>${escapeHTML(ev.title)} (${dLabel(ev.start,{day:"2-digit",month:"short"})}${ev.end!==ev.start ? "–"+dLabel(ev.end,{day:"2-digit",month:"short"}) : ""})</title></rect>`;
+      bars += `<text x="${(x1 + w + 5).toFixed(1)}" y="${(y + BAR_H - 1.5).toFixed(1)}" font-size="6.5" font-family="inherit" fill="var(--ink-soft)">${escapeHTML(label)}</text>`;
+    });
+    const bandBottom = TOP_PAD - 3 + (rowsUsed + catEvents.length) * ROW_H;
+    // banda de fondo súper tenue para diferenciar visualmente esta categoría de las demás
+    bands = `<rect x="0" y="${bandTop.toFixed(1)}" width="${W}" height="${(bandBottom-bandTop).toFixed(1)}" fill="${cat.color}" opacity="0.05"></rect>` + bands;
+    rowsUsed += catEvents.length;
   });
 
-  if (catActive.has("clima") && weatherData){
-    const cat = CATEGORIES.find(c => c.key === "clima");
-    const avgTemps = weatherData.dates.map((_, i) => (weatherData.max[i] + weatherData.min[i]) / 2);
-    const tMin = Math.min(...weatherData.min), tMax = Math.max(...weatherData.max);
-    const tRange = Math.max(1, tMax - tMin);
-    const tYFor = t => PAD_TOP + (1 - (t - tMin) / tRange) * (H - PAD_TOP - PAD_BOTTOM);
-    const pts = weatherData.dates.map((dateStr, i) => [xFor(new Date(dateStr + "T00:00:00")), tYFor(avgTemps[i])]);
-    addCurve(cat, pts);
+  const H = TOP_PAD + Math.max(1, rowsUsed) * ROW_H + 4;
+
+  // cuadrícula: una línea vertical por cada día, alineada con la columna de la fila de arriba
+  let gridLines = "";
+  for (let d = 1; d <= daysInMonth + 1; d++){
+    const x = xForDay(d);
+    const isToday = isoOf(new Date(year, month, d)) === todayStr;
+    gridLines += `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${H}" stroke="${isToday ? "var(--ink-faint)" : "#ededed"}" stroke-width="${isToday ? 1 : 0.6}"></line>`;
   }
 
-  const monthLabels = [6,7,8,9,10,11].map(m => {
-    const x = xFor(new Date(2026, m, 1));
-    const label = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"][m];
-    return `<text x="${x.toFixed(1)}" y="${H-2}" font-size="8" font-family="inherit" fill="var(--ink-faint)">${label}</text>`;
-  }).join("");
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${gridLines}${bands}${bars}</svg>`;
+}
 
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs>${defs}</defs>${paths}${monthLabels}</svg>`;
+// Clima: dato continuo (temperatura), no un evento con inicio/fin — va en su propia línea,
+// con el mismo look de curva suave + degradado que usa la app de Clima de Apple.
+function renderClimaLine(){
+  const wrap = document.getElementById("clima-wrap");
+  const el = document.getElementById("clima-line");
+  const active = catActive.has("clima");
+  wrap.hidden = !active;
+  if (!active || !weatherData) return;
+
+  const cat = CATEGORIES.find(c => c.key === "clima");
+  const year = calRefDate.getFullYear(), month = calRefDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const W = 1000, H = 60, PAD_TOP = 10, PAD_BOTTOM = 10;
+  const colW = W / daysInMonth;
+  const xForDay = dayNum => (dayNum - 1) * colW + colW / 2;
+
+  const idxInMonth = weatherData.dates
+    .map((dateStr, i) => ({ dateStr, i }))
+    .filter(({dateStr}) => dateStr.startsWith(`${year}-${String(month+1).padStart(2,"0")}`));
+
+  if (!idxInMonth.length){
+    el.innerHTML = `<div class="clima-empty">Sin pronóstico real disponible para este mes (el pronóstico solo alcanza ~16 días).</div>`;
+    return;
+  }
+
+  const avgTemps = idxInMonth.map(({i}) => (weatherData.max[i] + weatherData.min[i]) / 2);
+  const tMin = Math.min(...idxInMonth.map(({i}) => weatherData.min[i]));
+  const tMax = Math.max(...idxInMonth.map(({i}) => weatherData.max[i]));
+  const tRange = Math.max(1, tMax - tMin);
+  const tYFor = t => PAD_TOP + (1 - (t - tMin) / tRange) * (H - PAD_TOP - PAD_BOTTOM);
+  const pts = idxInMonth.map(({dateStr}, k) => [xForDay(parseInt(dateStr.slice(8,10), 10)), tYFor(avgTemps[k])]);
+
+  const lineD = smoothPath(pts);
+  const baseline = H - PAD_BOTTOM;
+  const areaD = `${lineD} L${pts[pts.length-1][0].toFixed(1)},${baseline} L${pts[0][0].toFixed(1)},${baseline} Z`;
+
+  const defs = `<linearGradient id="climaGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="${cat.color}" stop-opacity="0.35"></stop>
+    <stop offset="100%" stop-color="${cat.color}" stop-opacity="0"></stop>
+  </linearGradient>`;
+
+  const labels = `
+    <text x="${pts[0][0].toFixed(1)}" y="${(tYFor(avgTemps[0])-4).toFixed(1)}" font-size="8" font-weight="700" font-family="inherit" fill="var(--ink)">${Math.round(avgTemps[0])}°</text>
+    <text x="${pts[pts.length-1][0].toFixed(1)}" y="${(tYFor(avgTemps[avgTemps.length-1])-4).toFixed(1)}" text-anchor="end" font-size="8" font-weight="700" font-family="inherit" fill="var(--ink)">${Math.round(avgTemps[avgTemps.length-1])}°</text>
+  `;
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <defs>${defs}</defs>
+    <path d="${areaD}" fill="url(#climaGrad)"></path>
+    <path d="${lineD}" fill="none" stroke="${cat.color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+    ${labels}
+  </svg>`;
 }
 
 buildCatToggles();
-renderCatCurves();
+renderMonthCalendar();
 loadWeather();
 </script>
 </body>
