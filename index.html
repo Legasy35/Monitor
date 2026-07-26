@@ -11,11 +11,18 @@
     --ink-faint:#9a9a9a;
     --rule:#d9d9d9;
     --lilac:#8e7cc3;
+    --page-bg:#f5f5f7;
+    --card-bg:#ffffff;
+    --radius:16px;
+    --radius-sm:10px;
+    --radius-pill:999px;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 4px 14px rgba(0,0,0,.06);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.05);
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
-    background:transparent;
+    background:var(--page-bg);
     color:var(--ink);
     font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
     -webkit-font-smoothing:antialiased;
@@ -24,8 +31,7 @@
     width:100%;
     max-width:1400px;
     margin:0 auto;
-    border-bottom:3px solid var(--ink);
-    padding:8px clamp(16px, 5vw, 20px) 16px;
+    padding:32px clamp(16px, 5vw, 20px) 20px;
     text-align:left;
     background:transparent;
   }
@@ -77,12 +83,12 @@
     background:var(--ink);
     color:#fff;
     border:none;
-    padding:10px 18px;
+    padding:10px 20px;
     font-weight:700;
     font-size:13.5px;
     letter-spacing:.03em;
     cursor:pointer;
-    border-radius:2px;
+    border-radius:var(--radius-pill);
     transition:opacity .15s ease;
   }
   button#refresh-all:hover{opacity:.8;}
@@ -92,13 +98,17 @@
     width:100%;
     max-width:1400px;
     margin:0 auto;
-    padding:18px clamp(16px, 5vw, 20px) 60px;
+    padding:0 clamp(16px, 5vw, 20px) 60px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
   }
 
   .outlet{
-    margin-top:26px;
-    border-top:1px solid var(--rule);
-    padding-top:14px;
+    background:var(--card-bg);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:18px 20px;
   }
   .outlet-head{
     display:flex;
@@ -140,7 +150,7 @@
   .group-label:first-child{margin-top:0;}
   .item{
     padding:12px 0;
-    border-bottom:1px dashed var(--rule);
+    border-bottom:1px solid #efefef;
   }
   .item:last-child{border-bottom:none;}
   .item-row{
@@ -155,6 +165,7 @@
     background:#e4e4e4;
     flex-shrink:0;
     overflow:hidden;
+    border-radius:var(--radius-sm);
   }
   .item-thumb img{
     width:100%;
@@ -223,13 +234,28 @@
     font-weight:600;
     background:#fff;
     border:1px solid var(--rule);
+    border-radius:var(--radius-pill);
     color:var(--ink-soft);
-    padding:3px 8px;
+    padding:4px 10px;
     cursor:pointer;
     white-space:nowrap;
   }
   .copy-btn:hover{border-color:var(--ink); color:var(--ink);}
   .copy-btn.copied{border-color:var(--ink); color:var(--ink); font-weight:700;}
+  .copy-img-btn{
+    font-family:inherit;
+    font-size:10.5px;
+    font-weight:600;
+    background:#fff;
+    border:1px solid var(--rule);
+    border-radius:var(--radius-pill);
+    color:var(--ink-soft);
+    padding:4px 10px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .copy-img-btn:hover{border-color:var(--ink); color:var(--ink);}
+  .copy-img-btn.copied{border-color:var(--ink); color:var(--ink); font-weight:700;}
   .empty, .loading, .error-msg{
     font-size:13.5px;
     color:var(--ink-soft);
@@ -266,9 +292,11 @@
   .events-strip{
     width:100%;
     max-width:1400px;
-    margin:0 auto;
-    padding:10px clamp(16px, 5vw, 20px) 12px;
-    border-bottom:1px solid var(--rule);
+    margin:0 auto 14px;
+    padding:20px 20px 18px;
+    background:var(--card-bg);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
   }
   .events-strip-title{
     font-size:10px;
@@ -302,8 +330,9 @@
     font-weight:600;
     background:#fff;
     border:1px solid var(--rule);
+    border-radius:var(--radius-pill);
     color:var(--ink-soft);
-    padding:5px 11px;
+    padding:5px 12px;
     cursor:pointer;
     display:flex;
     align-items:center;
@@ -321,8 +350,9 @@
     font-weight:600;
     background:#fff;
     border:1px solid var(--rule);
+    border-radius:var(--radius-pill);
     color:var(--ink-soft);
-    padding:5px 11px;
+    padding:5px 12px;
     cursor:pointer;
     margin-left:auto;
   }
@@ -338,6 +368,7 @@
     flex:1;
     background:#fff;
     border:1px solid var(--rule);
+    border-radius:var(--radius-sm);
     color:var(--ink-soft);
     font-size:11px;
     font-weight:600;
@@ -356,6 +387,7 @@
     font-family:inherit;
     background:#fff;
     border:1px solid var(--rule);
+    border-radius:var(--radius-sm);
     color:var(--ink);
     flex:1 1 0;
     min-width:0;
@@ -408,7 +440,7 @@
     gap:14px;
     align-items:baseline;
     padding:8px 0;
-    border-bottom:1px dashed var(--rule);
+    border-bottom:1px solid #efefef;
   }
   .event-row:last-child{border-bottom:none;}
   .event-date{
@@ -438,14 +470,12 @@
 
   .filters-bar{
     width:100%;
-    max-width:1400px;
-    margin:0 auto;
-    padding:14px clamp(16px, 5vw, 20px);
+    padding:14px 20px;
     display:flex;
     align-items:center;
     gap:20px;
     flex-wrap:wrap;
-    border-bottom:1px solid var(--rule);
+    border-top:1px solid var(--rule);
   }
   .filter-group{
     display:flex;
@@ -461,15 +491,15 @@
   }
   .search-row{
     width:100%;
-    max-width:1400px;
-    margin:0 auto;
-    padding:10px clamp(16px, 5vw, 20px) 4px;
+    padding:14px 20px 18px;
+    border-top:1px solid var(--rule);
   }
   .filter-search{
     font-family:inherit;
     font-size:13px;
     border:1px solid var(--rule);
-    padding:7px 10px;
+    border-radius:var(--radius-sm);
+    padding:8px 12px;
     width:280px;
     max-width:100%;
     background:#fff;
@@ -480,7 +510,8 @@
     font-family:inherit;
     font-size:13px;
     border:1px solid var(--rule);
-    padding:6px 8px;
+    border-radius:var(--radius-sm);
+    padding:7px 10px;
     background:#fff;
     color:var(--ink);
   }
@@ -491,25 +522,32 @@
     background:#fff;
     color:var(--ink);
     border:1px solid var(--ink);
-    padding:7px 12px;
+    border-radius:var(--radius-pill);
+    padding:7px 14px;
     cursor:pointer;
   }
   .filter-toggle.active{
     background:var(--ink);
     color:#fff;
   }
-  .outlet-toggles{
+  .controls-card{
     width:100%;
     max-width:1400px;
-    margin:0 auto;
-    padding:14px clamp(16px, 5vw, 20px) 0;
+    margin:0 auto 14px;
+    background:var(--card-bg);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .outlet-toggles{
+    width:100%;
+    padding:18px 20px 16px;
   }
   .outlet-toggles-title{
-    font-size:11px;
+    font-size:15px;
     font-weight:700;
-    letter-spacing:.08em;
-    text-transform:uppercase;
-    color:var(--ink-soft);
+    letter-spacing:.02em;
+    color:var(--ink);
     margin-bottom:8px;
   }
   .outlet-checklist{
@@ -572,37 +610,39 @@
   <div class="events-strip-note">eventos cargados a mano · asuncion.live · disfrutandoparaguay.com</div>
 </div>
 
-<div class="filters-bar">
-  <div class="filter-group">
-    <label for="filter-freshness">Antigüedad</label>
-    <select id="filter-freshness">
-      <option value="all">Todas</option>
-      <option value="15m">Últimos 15 min</option>
-      <option value="30m">Últimos 30 min</option>
-      <option value="1h">Última hora</option>
-      <option value="3h">Últimas 3 hs</option>
-      <option value="6h">Últimas 6 hs</option>
-      <option value="today">Hoy</option>
-    </select>
+<div class="controls-card">
+  <div class="outlet-toggles" id="outlet-toggles">
+    <div class="outlet-toggles-title">Medios</div>
+    <ul class="outlet-checklist" id="outlet-checklist"></ul>
   </div>
-  <div class="filter-group">
-    <label for="filter-quantity">Cantidad</label>
-    <select id="filter-quantity">
-      <option value="3" selected>3</option>
-      <option value="5">5</option>
-      <option value="10">10</option>
-    </select>
+
+  <div class="filters-bar">
+    <div class="filter-group">
+      <label for="filter-freshness">Antigüedad</label>
+      <select id="filter-freshness">
+        <option value="all">Todas</option>
+        <option value="15m">Últimos 15 min</option>
+        <option value="30m">Últimos 30 min</option>
+        <option value="1h">Última hora</option>
+        <option value="3h">Últimas 3 hs</option>
+        <option value="6h">Últimas 6 hs</option>
+        <option value="today">Hoy</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="filter-quantity">Cantidad</label>
+      <select id="filter-quantity">
+        <option value="3" selected>3</option>
+        <option value="5">5</option>
+        <option value="10">10</option>
+      </select>
+    </div>
+    <button id="filter-latest-only" class="filter-toggle" type="button">Solo la última por sección</button>
   </div>
-  <button id="filter-latest-only" class="filter-toggle" type="button">Solo la última por sección</button>
-</div>
 
-<div class="outlet-toggles" id="outlet-toggles">
-  <div class="outlet-toggles-title">Medios</div>
-  <ul class="outlet-checklist" id="outlet-checklist"></ul>
-</div>
-
-<div class="search-row">
-  <input type="text" id="filter-search" class="filter-search" placeholder="Buscar por palabra clave…">
+  <div class="search-row">
+    <input type="text" id="filter-search" class="filter-search" placeholder="Buscar por palabra clave…">
+  </div>
 </div>
 
 <main id="outlets"></main>
@@ -828,6 +868,7 @@ function buildItemRow(it, outletName){
       <div class="item-side">
         <time class="item-time">${fmtTime(it.pubDate)}</time>
         <button type="button" class="copy-btn" title="Copiar formateado para WhatsApp">Copiar</button>
+        ${thumbUrl ? `<button type="button" class="copy-img-btn" title="Copiar la imagen">Copiar imagen</button>` : ""}
       </div>
       <p class="item-desc">${escapeHTML(desc) || "Este medio no envía resumen para esta noticia — usá el ↗ para leerla completa."}</p>
     </div>
@@ -846,7 +887,42 @@ function buildItemRow(it, outletName){
       setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1500);
     });
   });
+  const copyImgBtn = row.querySelector(".copy-img-btn");
+  if (copyImgBtn){
+    copyImgBtn.addEventListener("click", async (ev) => {
+      const btn = ev.currentTarget;
+      const original = btn.textContent;
+      try{
+        const res = await fetch(thumbUrl, { mode: "cors" });
+        const blob = await res.blob();
+        // El portapapeles solo acepta PNG directo; si la imagen es JPEG/WebP, la convertimos.
+        const pngBlob = blob.type === "image/png" ? blob : await blobToPng(blob);
+        await navigator.clipboard.write([ new ClipboardItem({ "image/png": pngBlob }) ]);
+        btn.textContent = "¡Copiada!";
+        btn.classList.add("copied");
+      }catch(e){
+        btn.textContent = "No se pudo copiar";
+      }
+      setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1800);
+    });
+  }
   return row;
+}
+
+// Convierte un blob de imagen (jpeg/webp/etc) a PNG, único formato que acepta el portapapeles
+function blobToPng(blob){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext("2d").drawImage(img, 0, 0);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error("sin blob")), "image/png");
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(blob);
+  });
 }
 
 // Re-dibuja un medio a partir de lo que ya está en caché, aplicando filtros. No hace red.
