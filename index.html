@@ -633,8 +633,8 @@
     <div class="filter-group">
       <label for="filter-quantity">Cantidad</label>
       <select id="filter-quantity">
-        <option value="3" selected>3</option>
-        <option value="5">5</option>
+        <option value="3">3</option>
+        <option value="5" selected>5</option>
         <option value="10">10</option>
       </select>
     </div>
@@ -728,7 +728,7 @@ const outletTogglesEl = document.getElementById("outlet-toggles");
 
 const outletCache = new Map(); // outlet.name -> { anyOk, updatedLabel, results:[{group, items}] }
 const hiddenOutlets = new Set();
-const filters = { search: "", freshness: "all", quantity: 3, latestOnly: false };
+const filters = { search: "", freshness: "all", quantity: 5, latestOnly: false };
 
 function fmtTime(dateStr){
   const d = new Date(dateStr);
@@ -908,21 +908,39 @@ function buildItemRow(it, outletName){
   });
   const copyImgBtn = row.querySelector(".copy-img-btn");
   if (copyImgBtn){
-    copyImgBtn.addEventListener("click", async (ev) => {
+    copyImgBtn.addEventListener("click", (ev) => {
       const btn = ev.currentTarget;
       const original = btn.textContent;
-      try{
-        const res = await fetch(thumbUrl, { mode: "cors" });
-        const blob = await res.blob();
-        // El portapapeles solo acepta PNG directo; si la imagen es JPEG/WebP, la convertimos.
-        const pngBlob = blob.type === "image/png" ? blob : await blobToPng(blob);
-        await navigator.clipboard.write([ new ClipboardItem({ "image/png": pngBlob }) ]);
+
+      // Traer la imagen (proxy con CORS, con reintento directo como respaldo)
+      async function fetchImageBlob(){
+        try{
+          const proxyUrl = "https://images.weserv.nl/?url=" + encodeURIComponent(thumbUrl.replace(/^https?:\/\//, "")) + "&output=png";
+          const res = await fetch(proxyUrl);
+          if (!res.ok) throw new Error("proxy falló");
+          return await res.blob();
+        }catch(proxyErr){
+          const res = await fetch(thumbUrl, { mode: "cors" });
+          const raw = await res.blob();
+          return raw.type === "image/png" ? raw : await blobToPng(raw);
+        }
+      }
+
+      // clipboard.write() se llama YA, en el mismo instante del click (ClipboardItem acepta
+      // una promesa como valor) — si esperáramos a que termine el fetch antes de llamarlo,
+      // el navegador considera que ya pasó demasiado tiempo desde el click y bloquea el permiso.
+      const writePromise = navigator.clipboard.write([
+        new ClipboardItem({ "image/png": fetchImageBlob() })
+      ]);
+
+      writePromise.then(() => {
         btn.textContent = "¡Copiada!";
         btn.classList.add("copied");
-      }catch(e){
+      }).catch(() => {
         btn.textContent = "No se pudo copiar";
-      }
-      setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1800);
+      }).finally(() => {
+        setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1800);
+      });
     });
   }
   return row;
