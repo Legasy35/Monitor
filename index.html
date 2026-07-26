@@ -343,9 +343,6 @@
   .cat-toggle-btn.on{opacity:1; border-color:var(--ink-faint); color:var(--ink);}
   .cat-curves-wrap{width:100%; line-height:0; margin-bottom:14px;}
   .cat-curves-wrap svg{width:100%; height:auto; display:block;}
-  .clima-wrap{width:100%; line-height:0; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--rule);}
-  .clima-empty{font-size:11px; color:var(--ink-faint); font-style:italic; line-height:1.4;}
-  .clima-wrap svg{width:100%; height:auto; display:block;}
 
   .cal-today-btn{
     font-family:inherit;
@@ -605,7 +602,6 @@
   </div>
 
   <div class="cat-toggles" id="cat-toggles"></div>
-  <div class="clima-wrap" id="clima-wrap" hidden><div class="clima-line" id="clima-line"></div></div>
   <div class="cal-months-row" id="cal-months-row"></div>
   <div class="cal-grid" id="cal-grid"></div>
   <div class="cat-curves-wrap"><div class="cat-curves" id="cat-curves"></div></div>
@@ -857,17 +853,35 @@ function bestRawDescription(it){
   return cleanDescription(c).length > cleanDescription(d).length ? c : d;
 }
 
+// Recorta un texto a maxLen caracteres, cortando en el último espacio (no a mitad de palabra).
+// No es un resumen inteligente — solo un recorte prolijo a un largo fijo.
+function shortTopic(text, maxLen){
+  if (text.length <= maxLen) return text;
+  const cut = text.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > maxLen * 0.5 ? cut.slice(0, lastSpace) : cut).trim() + "…";
+}
+
 function buildItemRow(it, outletName){
   const rawDesc = bestRawDescription(it);
   const desc = cleanDescription(rawDesc);
   const thumbUrl = it.thumbnail || it.enclosure?.link || "";
+
+  // En SILpy el título del feed es solo "Expediente D-XXXXX", que no dice nada por sí solo.
+  // El texto que sí identifica de qué trata viene en la descripción — le agregamos una versión
+  // corta (no es un resumen "inteligente", es un recorte prolijo a un largo fijo).
+  let displayTitle = it.title;
+  if (outletName === "Congreso Nacional (SILpy)" && desc){
+    displayTitle = `${it.title} — ${shortTopic(desc, 80)}`;
+  }
+
   const row = document.createElement("div");
   row.className = "item";
   row.innerHTML = `
     <div class="item-row">
       <div class="item-thumb">${thumbUrl ? `<img src="${thumbUrl}" alt="" loading="lazy" onerror="this.parentElement.innerHTML=''">` : ""}</div>
       <div class="item-title-wrap">
-        <button type="button" class="item-title">${escapeHTML(it.title)}</button>
+        <button type="button" class="item-title">${escapeHTML(displayTitle)}</button>
         <a class="item-openlink" href="${it.link}" target="_blank" rel="noopener" title="Abrir la nota original">↗</a>
       </div>
       <div class="item-side">
@@ -1170,7 +1184,6 @@ function renderMonthCalendar(){
   }
 
   renderCatCurves();
-  renderClimaLine();
 }
 
 const EVENTS_PREVIEW_COUNT = 5;
@@ -1250,7 +1263,7 @@ async function loadWeather(){
     const data = await res.json();
     if (!data.daily?.time) return;
     weatherData = { dates: data.daily.time, max: data.daily.temperature_2m_max, min: data.daily.temperature_2m_min };
-    renderClimaLine();
+    renderCatCurves();
   }catch(e){ /* sin pronóstico disponible ahora; el resto de las curvas sigue igual */ }
 }
 
@@ -1266,7 +1279,6 @@ function buildCatToggles(){
       if (catActive.has(cat.key)){ catActive.delete(cat.key); btn.classList.remove("on"); }
       else { catActive.add(cat.key); btn.classList.add("on"); }
       renderCatCurves();
-      renderClimaLine();
     });
     wrap.appendChild(btn);
   });
@@ -1328,6 +1340,34 @@ function renderCatCurves(){
 
   const H = TOP_PAD + Math.max(1, rowsUsed) * ROW_H + 4;
 
+  // Clima: dato continuo de temperatura, dibujado detrás de todo como una capa bien tenue
+  // (mismo eje de días que las barras, para que quede alineado con el resto)
+  let climaBg = "";
+  if (catActive.has("clima") && weatherData){
+    const climaCat = CATEGORIES.find(c => c.key === "clima");
+    const idxInMonth = weatherData.dates
+      .map((dateStr, i) => ({ dateStr, i }))
+      .filter(({dateStr}) => dateStr.startsWith(`${year}-${String(month+1).padStart(2,"0")}`));
+    if (idxInMonth.length){
+      const avgTemps = idxInMonth.map(({i}) => (weatherData.max[i] + weatherData.min[i]) / 2);
+      const tMin = Math.min(...idxInMonth.map(({i}) => weatherData.min[i]));
+      const tMax = Math.max(...idxInMonth.map(({i}) => weatherData.max[i]));
+      const tRange = Math.max(1, tMax - tMin);
+      const tYFor = t => 3 + (1 - (t - tMin) / tRange) * (H - 6);
+      const pts = idxInMonth.map(({dateStr}, k) => [xForDay(parseInt(dateStr.slice(8,10), 10)) + colW/2, tYFor(avgTemps[k])]);
+      const lineD = smoothPath(pts);
+      const areaD = `${lineD} L${pts[pts.length-1][0].toFixed(1)},${H} L${pts[0][0].toFixed(1)},${H} Z`;
+      climaBg = `
+        <defs><linearGradient id="climaGradBg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${climaCat.color}" stop-opacity="0.10"></stop>
+          <stop offset="100%" stop-color="${climaCat.color}" stop-opacity="0"></stop>
+        </linearGradient></defs>
+        <path d="${areaD}" fill="url(#climaGradBg)"></path>
+        <path d="${lineD}" fill="none" stroke="${climaCat.color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" opacity="0.22"></path>
+      `;
+    }
+  }
+
   // cuadrícula: una línea vertical por cada día, alineada con la columna de la fila de arriba
   let gridLines = "";
   for (let d = 1; d <= daysInMonth + 1; d++){
@@ -1336,61 +1376,7 @@ function renderCatCurves(){
     gridLines += `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${H}" stroke="${isToday ? "var(--ink-faint)" : "#ededed"}" stroke-width="${isToday ? 1 : 0.6}"></line>`;
   }
 
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${gridLines}${bands}${bars}</svg>`;
-}
-
-// Clima: dato continuo (temperatura), no un evento con inicio/fin — va en su propia línea,
-// con el mismo look de curva suave + degradado que usa la app de Clima de Apple.
-function renderClimaLine(){
-  const wrap = document.getElementById("clima-wrap");
-  const el = document.getElementById("clima-line");
-  const active = catActive.has("clima");
-  wrap.hidden = !active;
-  if (!active || !weatherData) return;
-
-  const cat = CATEGORIES.find(c => c.key === "clima");
-  const year = calRefDate.getFullYear(), month = calRefDate.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const W = 1000, H = 60, PAD_TOP = 10, PAD_BOTTOM = 10;
-  const colW = W / daysInMonth;
-  const xForDay = dayNum => (dayNum - 1) * colW + colW / 2;
-
-  const idxInMonth = weatherData.dates
-    .map((dateStr, i) => ({ dateStr, i }))
-    .filter(({dateStr}) => dateStr.startsWith(`${year}-${String(month+1).padStart(2,"0")}`));
-
-  if (!idxInMonth.length){
-    el.innerHTML = `<div class="clima-empty">Sin pronóstico real disponible para este mes (el pronóstico solo alcanza ~16 días).</div>`;
-    return;
-  }
-
-  const avgTemps = idxInMonth.map(({i}) => (weatherData.max[i] + weatherData.min[i]) / 2);
-  const tMin = Math.min(...idxInMonth.map(({i}) => weatherData.min[i]));
-  const tMax = Math.max(...idxInMonth.map(({i}) => weatherData.max[i]));
-  const tRange = Math.max(1, tMax - tMin);
-  const tYFor = t => PAD_TOP + (1 - (t - tMin) / tRange) * (H - PAD_TOP - PAD_BOTTOM);
-  const pts = idxInMonth.map(({dateStr}, k) => [xForDay(parseInt(dateStr.slice(8,10), 10)), tYFor(avgTemps[k])]);
-
-  const lineD = smoothPath(pts);
-  const baseline = H - PAD_BOTTOM;
-  const areaD = `${lineD} L${pts[pts.length-1][0].toFixed(1)},${baseline} L${pts[0][0].toFixed(1)},${baseline} Z`;
-
-  const defs = `<linearGradient id="climaGrad" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="${cat.color}" stop-opacity="0.35"></stop>
-    <stop offset="100%" stop-color="${cat.color}" stop-opacity="0"></stop>
-  </linearGradient>`;
-
-  const labels = `
-    <text x="${pts[0][0].toFixed(1)}" y="${(tYFor(avgTemps[0])-4).toFixed(1)}" font-size="8" font-weight="700" font-family="inherit" fill="var(--ink)">${Math.round(avgTemps[0])}°</text>
-    <text x="${pts[pts.length-1][0].toFixed(1)}" y="${(tYFor(avgTemps[avgTemps.length-1])-4).toFixed(1)}" text-anchor="end" font-size="8" font-weight="700" font-family="inherit" fill="var(--ink)">${Math.round(avgTemps[avgTemps.length-1])}°</text>
-  `;
-
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-    <defs>${defs}</defs>
-    <path d="${areaD}" fill="url(#climaGrad)"></path>
-    <path d="${lineD}" fill="none" stroke="${cat.color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
-    ${labels}
-  </svg>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${gridLines}${climaBg}${bands}${bars}</svg>`;
 }
 
 buildCatToggles();
