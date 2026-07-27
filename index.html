@@ -197,7 +197,7 @@
     overflow:hidden;
     text-overflow:ellipsis;
   }
-  .item.expanded .item-title{white-space:normal;}
+  .item.expanded .item-title{white-space:normal; overflow-wrap:break-word; word-break:break-word;}
   .item-title:hover{text-decoration:underline;}
   .item-openlink{
     flex-shrink:0;
@@ -226,6 +226,8 @@
     line-height:1.5;
     color:var(--ink-soft);
     display:none;
+    overflow-wrap:break-word;
+    word-break:break-word;
   }
   .item.expanded .item-desc{display:block;}
   .copy-btn{
@@ -256,6 +258,21 @@
   }
   .copy-img-btn:hover{border-color:var(--ink); color:var(--ink);}
   .copy-img-btn.copied{border-color:var(--ink); color:var(--ink); font-weight:700;}
+  .download-video-btn{
+    font-family:inherit;
+    font-size:10.5px;
+    font-weight:600;
+    background:#fff;
+    border:1px solid var(--rule);
+    border-radius:var(--radius-pill);
+    color:var(--ink-soft);
+    padding:4px 10px;
+    cursor:pointer;
+    white-space:nowrap;
+    text-decoration:none;
+    display:inline-block;
+  }
+  .download-video-btn:hover{border-color:var(--ink); color:var(--ink);}
   .empty, .loading, .error-msg{
     font-size:13.5px;
     color:var(--ink-soft);
@@ -653,6 +670,11 @@
 // Cada medio puede tener 1 o más feeds RSS. Se listan combinados bajo el nombre del medio.
 const OUTLETS = [
   {
+    name: "Lista de periodistas y medios de X.com",
+    site: "https://rss.app/feeds/NdLO7IN2816mXRiK.xml",
+    groups: [{ url: "https://rss.app/feeds/NdLO7IN2816mXRiK.xml" }]
+  },
+  {
     name: "ABC Color",
     site: "https://www.abc.com.py",
     groups: [
@@ -864,15 +886,35 @@ function shortTopic(text, maxLen){
 
 function buildItemRow(it, outletName){
   const rawDesc = bestRawDescription(it);
-  const desc = cleanDescription(rawDesc);
+  let desc = cleanDescription(rawDesc);
+  let effectiveRawDesc = rawDesc;
   const thumbUrl = it.thumbnail || it.enclosure?.link || "";
+  const videoUrl = (it.enclosure?.type || "").startsWith("video/") ? it.enclosure.link : "";
+
+  let displayTitle = it.title;
+  let copyTitle = it.title; // título usado en negrita al copiar para WhatsApp
 
   // En SILpy el título del feed es solo "Expediente D-XXXXX", que no dice nada por sí solo.
   // El texto que sí identifica de qué trata viene en la descripción — le agregamos una versión
   // corta (no es un resumen "inteligente", es un recorte prolijo a un largo fijo).
-  let displayTitle = it.title;
   if (outletName === "Congreso Nacional (SILpy)" && desc){
     displayTitle = `${it.title} — ${shortTopic(desc, 80)}`;
+    // copyTitle se queda con el título original: si usáramos displayTitle acá, el recorte de la
+    // descripción quedaría duplicado (una vez en negrita, y de nuevo completo en el cuerpo).
+  }
+
+  // En X.com el tweet completo suele venir en el título (a veces también repetido o parcial
+  // en la descripción) — eso hacía que el "título" fuera larguísimo y se saliera de la fila.
+  // Acá NO nos fijamos si hay descripción o no: siempre usamos el texto más completo entre
+  // título y descripción como cuerpo, y el título se acorta a un adelanto corto.
+  if (outletName === "Lista de periodistas y medios de X.com" && it.title){
+    const titleClean = cleanDescription(it.title);
+    if (titleClean.length > desc.length){
+      effectiveRawDesc = it.title;
+      desc = titleClean;
+    }
+    displayTitle = shortTopic(desc, 70);
+    copyTitle = displayTitle; // acá sí sirve como adelanto corto antes del tweet completo
   }
 
   // Precargamos la imagen en segundo plano ya al armar la fila (no cuando tocan el botón),
@@ -904,8 +946,9 @@ function buildItemRow(it, outletName){
       </div>
       <div class="item-side">
         <time class="item-time">${fmtTime(it.pubDate)}</time>
-        <button type="button" class="copy-btn" title="Copiar formateado para WhatsApp">Copiar</button>
+        <button type="button" class="copy-btn" title="Copiar formateado para WhatsApp">Copiar texto</button>
         ${thumbUrl ? `<button type="button" class="copy-img-btn" title="Copiar la imagen">Copiar imagen</button>` : ""}
+        ${videoUrl ? `<a class="download-video-btn" href="${videoUrl}" download target="_blank" rel="noopener" title="Descargar el video">Descargar video ⬇</a>` : ""}
       </div>
       <p class="item-desc">${escapeHTML(desc) || "Este medio no envía resumen para esta noticia — usá el ↗ para leerla completa."}</p>
     </div>
@@ -915,8 +958,8 @@ function buildItemRow(it, outletName){
   });
   row.querySelector(".copy-btn").addEventListener("click", (ev) => {
     const btn = ev.currentTarget;
-    const descParagraphs = cleanDescriptionParagraphs(rawDesc);
-    const text = `*${fmtDateForShare(it.pubDate)}*\n\n*${it.title}*\n\n${descParagraphs}`;
+    const descParagraphs = cleanDescriptionParagraphs(effectiveRawDesc);
+    const text = `*${fmtDateForShare(it.pubDate)}*\n\n*${copyTitle}*\n\n${descParagraphs}`;
     navigator.clipboard.writeText(text).then(() => {
       const original = btn.textContent;
       btn.textContent = "¡Copiado!";
