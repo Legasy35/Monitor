@@ -875,6 +875,24 @@ function buildItemRow(it, outletName){
     displayTitle = `${it.title} — ${shortTopic(desc, 80)}`;
   }
 
+  // Precargamos la imagen en segundo plano ya al armar la fila (no cuando tocan el botón),
+  // para que al momento del click el blob ya esté resuelto y no haya que esperar nada.
+  let imgBlobPromise = null;
+  if (thumbUrl){
+    imgBlobPromise = (async () => {
+      try{
+        const proxyUrl = "https://images.weserv.nl/?url=" + encodeURIComponent(thumbUrl.replace(/^https?:\/\//, "")) + "&output=png";
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error("proxy falló");
+        return await res.blob();
+      }catch(proxyErr){
+        const res = await fetch(thumbUrl, { mode: "cors" });
+        const raw = await res.blob();
+        return raw.type === "image/png" ? raw : await blobToPng(raw);
+      }
+    })();
+  }
+
   const row = document.createElement("div");
   row.className = "item";
   row.innerHTML = `
@@ -908,39 +926,23 @@ function buildItemRow(it, outletName){
   });
   const copyImgBtn = row.querySelector(".copy-img-btn");
   if (copyImgBtn){
-    copyImgBtn.addEventListener("click", (ev) => {
+    copyImgBtn.addEventListener("click", async (ev) => {
       const btn = ev.currentTarget;
       const original = btn.textContent;
-
-      // Traer la imagen (proxy con CORS, con reintento directo como respaldo)
-      async function fetchImageBlob(){
-        try{
-          const proxyUrl = "https://images.weserv.nl/?url=" + encodeURIComponent(thumbUrl.replace(/^https?:\/\//, "")) + "&output=png";
-          const res = await fetch(proxyUrl);
-          if (!res.ok) throw new Error("proxy falló");
-          return await res.blob();
-        }catch(proxyErr){
-          const res = await fetch(thumbUrl, { mode: "cors" });
-          const raw = await res.blob();
-          return raw.type === "image/png" ? raw : await blobToPng(raw);
-        }
+      if (!("clipboard" in navigator) || !window.ClipboardItem){
+        btn.textContent = "No soportado en este navegador";
+        setTimeout(() => { btn.textContent = original; }, 2200);
+        return;
       }
-
-      // clipboard.write() se llama YA, en el mismo instante del click (ClipboardItem acepta
-      // una promesa como valor) — si esperáramos a que termine el fetch antes de llamarlo,
-      // el navegador considera que ya pasó demasiado tiempo desde el click y bloquea el permiso.
-      const writePromise = navigator.clipboard.write([
-        new ClipboardItem({ "image/png": fetchImageBlob() })
-      ]);
-
-      writePromise.then(() => {
+      try{
+        const blob = await imgBlobPromise; // normalmente ya está resuelto de antes
+        await navigator.clipboard.write([ new ClipboardItem({ "image/png": blob }) ]);
         btn.textContent = "¡Copiada!";
         btn.classList.add("copied");
-      }).catch(() => {
+      }catch(e){
         btn.textContent = "No se pudo copiar";
-      }).finally(() => {
-        setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1800);
-      });
+      }
+      setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1800);
     });
   }
   return row;
